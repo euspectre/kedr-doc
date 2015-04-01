@@ -1,4 +1,4 @@
-Additional and archived documentation files for KEDR project that in not present in its main repository. 
+Additional and archived documentation files for KEDR project that are not present in its main repository. 
 
 May be out-of-date.
 
