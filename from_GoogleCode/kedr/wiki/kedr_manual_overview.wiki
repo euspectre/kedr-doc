@@ -1,0 +1,295 @@
+#summary KEDR Manual: Overview
+
+<wiki:toc max_depth="2" />
+
+= Overview =
+
+== General ==
+
+
+KEDR is a system for the analysis of Linux [kedr_manual_glossary#Glossary kernel modules] (including 
+but not limited to device drivers and file system modules) in 
+runtime. The types of analysis that can be performed with KEDR vary from simply 
+collecting the statistics on the kernel functions used by a particular 
+module to revealing subtle errors in the module via fault simulation 
+techniques - and may go even beyond that in the future.
+
+
+
+KEDR framework will probably be useful mostly for the developers and 
+maintainers of kernel modules. It could also be used in the automated verification systems for kernel-mode software (for example, in the certification systems for Linux drivers, etc.), where, among other things, a kernel module is subjected to a series of tests to estimate its reliability.
+
+
+
+One of the main goals of KEDR is to provide a reliable runtime analysis 
+engine for Linux kernel modules, easy to use and easy to build custom 
+applications upon.
+
+
+
+Currently, there is a variety of tools, in-kernel or standalone, that allow 
+analyzing the kernel modules: Kmemcheck, Kmemleak, Fault Injection framework, SystemTap, LTTng, various 
+debugging facilities and so forth. Many of these tools operate on the 
+kernel as a whole rather than on a particular module. KEDR may 
+complement such systems well because it allows to analyze the kernel 
+modules chosen by the user and strives to affect other parts of the kernel 
+as little as possible.
+
+
+
+The ideas behind KEDR are really not very new. One could mention at least 
+two other systems that analyze the selected kernel modules in runtime and help 
+reveal problems in these: [http://msdn.microsoft.com/en-us/library/ff545448(VS.85).aspx Microsoft Driver Verifier for Windows]
+and "Impostor" ("API Swapping") facilities used 
+by [http://developer.novell.com/devnet/yes/ SUSE YES Tools for Linux]. Both systems seem to monitor the operation of a target 
+module including its interaction with the rest of the kernel.
+
+
+
+At the core of KEDR lies its ability to intercept function calls made by 
+the target kernel module. If the module uses a function exported by the kernel 
+proper or by some other module, KEDR can instrument the calls to this 
+function in the target module. This allows to find out the values of 
+arguments the function was called with, the value it returned, etc. This also 
+allows to alter the execution of the target module, for example, to simulate a 
+situaton when memory allocation fails or to allocate memory from some 
+special tracked pool instead of the default one and so on.
+
+
+<blockquote><font><b><u>Note</u></b></font>
+
+Note that KEDR is not generally a tool to analyze the interaction between a low-level device driver and the hardware the driver services. 
+
+</blockquote>
+
+== Types of Analysis KEDR Supports ==
+
+
+Currently, KEDR provides tools for the following kinds of analysis: 
+    
+
+<ul><li>
+
+[kedr_manual_using_kedr#Detecting_Memory_Leaks Checking for memory leaks] 
+The appropriate components of KEDR keep track of various memory allocation and 
+deallocation operations made by the target module. After the target module 
+has unloaded, KEDR generates a report listing the memory blocks that have 
+been allocated but not freed by that module along with a call stack for each of the 
+corresponding memory allocation calls.
+    
+</li>
+<li>
+
+[kedr_manual_using_kedr#Fault_Simulation Fault simulation] 
+KEDR forces some of the calls made by the target module fail. In fact,
+KEDR simulates the failure without actually calling the respective 
+[kedr_manual_glossary#Target_function target function]. The scenarios 
+(the calls to which functions must fail in what conditions) can be 
+controlled and customized by the user.
+    
+</li>
+<li>
+
+[kedr_manual_using_kedr#Call_Monitoring_(Call_Tracing) Call monitoring (call tracing)] 
+During the operation of the module under analysis, the information is 
+collected about the calls to [kedr_manual_glossary#Target_function target functions]: arguments, return values, etc. This information can be 
+saved to a file (<i>trace</i>) for future analysis in the user space.
+    
+
+
+This is similar to what [http://sourceforge.net/projects/strace/ strace] 
+utility does for user-space applications.
+    
+</li>
+</ul>
+
+Other types of analysis can be implemented with the help of KEDR. See 
+[kedr_manual_extend#Implementing_Custom_Types_of_Analysis "Implementing Custom Types of Analysis"] for more information and examples.
+
+
+== System Requirements ==
+
+
+KEDR system supports Linux kernel versions 2.6.32 or newer. Of all kernel 
+facilities it relies upon, tracing facilities (implementation of ring 
+buffer, etc.) currently have the highest requirements for the version of 
+the kernel.
+
+
+
+For the present time, only x86 and x86-64 architectures are supported.
+
+
+<blockquote><font><b><u>Note</u></b></font>
+
+Note that, in its [kedr_manual_overview#Common_Use_Case common use case], 
+KEDR does not rely on <i>kernel probes</i> (KProbes) to do 
+its work. It just employs instruction decoding facilities used to 
+implement KProbes. So it can operate even on the systems where support for 
+kernel probes is disabled in the kernel. 
+
+</blockquote>
+
+== Common Use Case ==
+
+
+Here is what a common use case for the runtime analysis of a kernel module with 
+KEDR may look like. This is just "a big picture", see [kedr_manual_getting_started#Getting_Started "Getting Started"] for a more detailed description of the operations
+executed at each step.
+
+The steps listed below can be performed manually or perhaps by a user-space 
+application.
+
+
+<ol><li>
+
+At the beginning, the target module is not loaded.
+
+</li>
+<li>
+
+The user loads the core components of KEDR system along with the appropriate plugins
+([kedr_manual_glossary#Payload_module payload modules]) and specifies the 
+name of the target module. KEDR begins watching for the target module to load.
+
+</li>
+<li>
+
+The user loads the target module or plugs in a device that as the system 
+knows, should be handled by the target module. Or (s)he does something else 
+that results in loading of the target module. 
+    
+
+
+When the target module is loaded but before it begins to perform its 
+initialization, KEDR detects that and hooks into the target module 
+(instruments it) for the payload modules to be able to work.
+    
+</li>
+<li>
+
+The user performs actions on the target module: operates on the 
+corresponding device or a partition with a given file system, etc. At the 
+same time, the payload modules collect the information about the 
+operation of the module, perform fault simulation, etc.
+
+
+
+The tests checking various operations with the kernel module can also be run at 
+this step. The goal is to make the module execute all the paths in its 
+code that the user wants to check.
+
+</li>
+<li>
+
+The user unloads the target module. 
+
+</li>
+<li>
+
+The user analyzes the results output by the payload modules and decides whether 
+the target module behaved as it was required.
+
+</li>
+<li>
+
+If it is necessary to analyze the target module once more (may be, perform 
+a different type of checks, etc.), the process can be repeated. When the 
+components of KEDR are no longer needed, they can be unloaded.
+
+</li>
+</ol>
+<blockquote><font><b><u>Note</u></b></font>
+
+Currently, KEDR framework provides no means to analyze an already loaded, 
+initialized and running target module.
+
+</blockquote>
+
+== Key Technologies KEDR Relies Upon ==
+
+
+The core components of KEDR have been developed based on the technologies 
+heavily used in the kernel itself, for example:
+
+
+<ul><li>
+
+<i>notification system</i>;
+
+</li>
+<li>
+
+<i>instruction decoding facilities</i> used in the kernel 
+to implement KProbes;
+
+</li>
+<li>
+
+<i>tracing support</i> (namely, the implementation of a 
+special <i>ring buffer</i> - the basis of various data 
+collection systems used in the kernel;
+
+</li>
+<li>
+
+<i>debugfs</i> file system as the mechanism for data exchange between 
+the kernel space and the user space.
+
+</li>
+</ul>
+== Limitations ==
+
+
+The ideas KEDR is based upon and the technologies it currently uses impose 
+some limitations on what it can do.
+
+
+<ul><li>
+
+KEDR operates on the binary interface used by a target module (ABI rather 
+than API) like many other runtime analysis systems. This not bad per se 
+but one of the consequences of this is that KEDR cannot detect, for example, 
+a call to {{{kmalloc()}}} because it is usually a macro or an 
+inline function rather than an ordinary function. Sometimes this can be 
+inconvenient. KEDR, however, *can* detect the calls to 
+{{{__kmalloc()}}}, {{{kmem_cache_alloc()}}} and other 
+functions to which {{{kmalloc()}}} eventually expands.
+    
+</li>
+<li>
+
+KEDR can only detect the calls directly made from the target kernel module. This 
+is because it is only the target module that is instrumented by KEDR, the 
+rest of the kernel is not affected. 
+    
+
+
+Suppose the target module calls function {{{create_foo()}}} exported 
+by some other module or by the kernel proper. Let that function allocate memory for 
+some structure with {{{kmalloc()}}}, initialize the structure and 
+return a pointer to it. In this case, KEDR is unaware that a memory 
+allocation has taken place. You need to tell KEDR explicitly to intercept 
+the calls to {{{create_foo()}}} too to be able to track this.
+    
+</li>
+<li>
+
+Currently, KEDR allows to analyze only one kernel module at a time. 
+    
+</li>
+<li>
+
+The tools built using KEDR framework can operate only on the calls made by the target module. Although it is enough in many cases, sometimes it is not. For example, a detector of data race conditions would require information not only about the calls to locking functions or the like but also about memory read and write operations which KEDR cannot track.
+    
+</li>
+</ul>
+== Reporting Bugs and Asking Questions ==
+
+
+If you have found a problem in KEDR or in this manual, please report it to [http://code.google.com/p/kedr/issues/ our bug tracker]. 
+
+
+
+If you have questions about KEDR, feature requests, ideas on how to make KEDR better, or just anything else concerning KEDR to discuss, feel free to post to our mailing list: [http://groups.google.com/group/kedr-discuss kedr-discuss]. We appreciate your feedback.
+

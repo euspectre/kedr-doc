@@ -1,0 +1,70 @@
+#summary Tips and Tricks - Uncategorized Useful Stuff
+
+<wiki:toc max_depth="4"/>
+
+= Tips and Tricks =
+
+== Writing to control files as superuser ==
+When using KEDR (especially for [kedr_manual_using_kedr#fault_sim fault simulation]), it can be necessary to write something to the control files where only a superuser has access. 
+
+If you cannot use *su* but rather only *sudo*, you can use the following trick:
+
+{{{
+sudo sh -c "echo {something} > {some_control_file}"
+}}}
+
+Example:
+
+{{{
+sudo sh -c \
+  "echo \"rnd100 < 5\" > /debug/kedr_fault_simulation/points/vmalloc/expression"
+}}}
+
+It is a bit ugly but it works. Perhaps, someone will suggest a better way.
+May be, using *tee* command could help, for example.
+
+== Obtaining information about a kernel module ==
+It is sometimes convenient to have the memory addresses of code sections of a loaded module as well as the values if its parameters. This information is available in sysfs. The following simple script can display it:
+
+{{{
+#!/bin/sh
+########################################################################
+# get_module_info.sh - print information about a loaded kernel
+# module (usually, a target module for KEDR).
+# This script prints the start addresses of the code sections as well as 
+# the parameters, etc.
+#
+# Usage:
+#       get_module_info.sh <module_name>
+########################################################################
+if test $# -ne 1; then
+    printf "Usage:\n\tget_module_info.sh <module_name>\n" > /dev/stderr
+    exit 1
+fi
+
+MODULE=$1
+
+lsmod | grep -E "^${MODULE}[[:blank:]]+" > /dev/null
+if test $? -ne 0; then
+    printf "Module \"${MODULE}\" is not found.\n"
+    exit 1
+fi
+
+# Addresses of code ("text") sections
+printf "Code sections:\n"
+for ss in /sys/module/${MODULE}/sections/.*text*; do 
+    printf "`basename ${ss}`\t`cat ${ss}`\n"; 
+done
+
+# Parameters
+if test -d /sys/module/${MODULE}/parameters; then
+    printf "\nParameters:\n"
+    for pp in /sys/module/${MODULE}/parameters/[a-zA-Z_0-9]*; do
+        printf "`basename ${pp}`\t`cat ${pp}`\n"; 
+    done
+fi
+
+exit 0
+}}}
+
+

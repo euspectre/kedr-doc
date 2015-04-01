@@ -1,0 +1,34 @@
+<font color="#1d773b"><b>KEDR</b></font> is a framework for dynamic (runtime and post factum) analysis of Linux kernel modules, including device drivers, file system modules, etc. The components of KEDR operate on a kernel module chosen by the user. They can intercept the function calls made by the module and, based on that, detect memory leaks, simulate resource shortage in the system as well as other uncommon situations, save the information about the function calls to a kind of "trace" for future analysis by the user-space tools.
+
+For the present, KEDR is provided for 32- and 64-bit x86 systems.
+
+KEDR can be used in the development of kernel modules (as a component of QA system) as well as when analyzing the kernel failures on a user's system (technical support). Certification systems and other automated verification systems for kernel-mode software can also benefit from it.
+------
+
+=== Downloads ===
+
+Latest release: [https://www.dropbox.com/s/1q8b4gjchq3mdz3/kedr-0.5.tar.bz2 KEDR 0.5]
+
+You can also use the latest code [http://code.google.com/p/kedr/source/checkout from the repository]. Bug fixes get there first, as well as support for newer kernel versions.
+
+=== More Info ===
+
+If you are looking for a step-by-step tutorial that allows to quickly learn how to use KEDR to monitor function calls, simulate memory allocation failures and detect memory leaks, then [kedr_manual_getting_started here it is].
+
+If you have questions, suggestions, proposals, etc., concerning KEDR 
+framework, feel free to join [http://groups.google.com/group/kedr-discuss "kedr-discuss" Google Group] and write us a message. Note that only the members of that group may post messages there.
+
+Detailed description of the framework is available in the [kedr_manual Reference Manual]. The [https://www.dropbox.com/s/xiij7ty9ahuc0nv/KEDR_Slides_LinuxCon2011.pdf slides] from the presentation about KEDR could be helpful too.
+
+The following information may also be useful:
+  * [Problems_Found Problems Found] - some of the problems in kernel modules revealed by KEDR tools
+  * [Known_Issues Known issues] in the framework
+  * HowTos:
+    * [HowTo_Autotest_Basics Using KEDR with Autotest] - how to use KEDR in conjunction with [http://autotest.github.com/ Autotest]
+    * [HowTo_Chromium_OS KEDR and Chromium OS] - how to build KEDR for [http://www.chromium.org/chromium-os Chromium OS]
+    * [HowTo_Another_Kernel How to build KEDR for another kernel] on the same machine or for another machine with the same architecture
+  * [Tips_and_Tricks Tips and Tricks]
+  * Comparison with similar systems:
+    * [KEDR_And_Kmemleak KEDR (LeakCheck) and Kmemleak]
+    * [KEDR_And_Fault_Injection KEDR (Fault Simulation) and Fault Injection framework] 
+

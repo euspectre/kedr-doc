@@ -1,0 +1,187 @@
+#summary KEDR Manual: Glossary
+
+<wiki:toc max_depth="2" />
+
+= Glossary =
+
+<blockquote><font><b><u>Note</u></b></font>
+
+Note that the terms <i>driver</i> and <i>kernel module</i> have differences in meaning in some cases. However, unless specifically stated, they are used interchangeably in this manual as the synonyms for <i>loadable kernel module</i>. The meaning is as it is defined [http://en.wikipedia.org/wiki/Loadable_kernel_module in Wikipedia].
+
+</blockquote>
+
+== KEDR ==
+
+
+*KEDR* stands for <b>KE</b>rnel-mode <b>D</b>rivers in <b>R</b>untime. KEDR framework provides the means to collect data about the operation of a kernel module in runtime and analyze these data. The tools provided by the framework rely heavily on the means to intercept the function calls made by the kernel module under analysis. 
+    
+
+== Target module ==
+
+
+A kernel module to be analyzed. 
+    
+
+== Target function ==
+
+
+To perform analysis of the target module, it can be necessary to intercept function calls the module makes. The functions the calls to which are to be intercepted are called <i>target functions</i>. For example, to analyze how memory is allocated and freed by the target module, one may need to intercept calls to {{{__kmalloc()}}}, {{{kfree()}}}, etc.
+    
+
+
+The target functions can be exported by the <i>base kernel</i> (<i>"kernel proper"</i>) or by some kernel modules.
+    
+
+
+By choosing appropriate [kedr_manual_glossary#Payload_module payload modules], the user may select the groups of functions the calls to which are to be intercepted.
+    
+
+== Trampoline ==
+
+
+KEDR system instruments the [kedr_manual_glossary#Target_module target module] so that the calls to the [kedr_manual_glossary#Target_function target functions] are replaced in it with the calls to special <i>trampoline functions</i>. 
+    
+
+
+A trampoline function has the same signature as the corresponding target function. When the trampoline function is called, it receives the same argument values as the target function would. The trampoline function calls [kedr_manual_glossary#Pre_handler pre handlers], [kedr_manual_glossary#Replacement_function replacement function] and [kedr_manual_glossary#Post_handler post handlers] that can be provided by the user via custom [kedr_manual_glossary#Payload_module payload modules]. If no replacement function is provided, the target function will be called instead.
+    
+
+== Replacement function ==
+
+
+A replacement function is a user-provided function that is called *instead* of the corresponding [kedr_manual_glossary#Target_function target function].
+    
+
+
+When the replacement function is called, it receives the same argument values as the target function would and additional argument of type {{{struct kedr_function_call_info *}}}. Return value of the replacement function is interpreted as a value returned by the target function (that is, the caller of the target function will get this value as if it has been returned by the target function).
+    
+
+
+The last argument of the replacement function currently contains only {{{return_address}}} field, which is set to the address of the instruction to which target function would return control. Note that this field should be used instead of expressions like {{{__builtin_return_address(0)}}}.  This is because a replacement function is actually called by a trampoline function rather than directly from the place where the target is called. What is usually needed, however, is not the return address of a replacement function but rather the return address of the target function (to output call stack, etc.).
+    
+
+
+A replacement function may do some actions instead of calling the target function. The visible effect of these actions may be the same as effect of target function call or they can be different. Another usage of replacement function is to call the target function (or to perform other actions) conditionally. Example: "if the value of {{{size}}} argument is less than 1024, call {{{__kmalloc()}}} as usual, otherwise return {{{NULL}}} as if{{{__kmalloc()}}} has failed to allocate {{{size}}} bytes". Such conditional calls controlled by user-defined scenarios are a key point in the fault simulation facilities provided by KEDR. 
+    
+
+
+If a replacement function should call (unconditionally) target function along with perfoming other actions, it is better to use [kedr_manual_glossary#Pre_handler pre handler] and/or [kedr_manual_glossary#Post_handler post handler] instead of a replacement function. The point is, several payload modules that need to process the same target function may work together only if no more than one of them replaces this function with another one. The usage of pre and post handlers, however, is not limited this way.
+    
+
+
+The exact signature of the replacement function is described in [kedr_manual_reference#struct_kedr_replace_pair "struct kedr_replace_pair"]. Apart from having the correct signature, KEDR system imposes no additional restrictions on the replacement functions. 
+    
+
+== Pre handler ==
+
+
+A pre handler is a user-provided function which is called *before* corresponding [kedr_manual_glossary#Target_function target function].
+    
+
+
+When the pre handler is called, it receives the same argument values as the target function will receive later and additional argument of type {{{struct kedr_function_call_info *}}}.    
+    
+
+
+The last argument of the replacement function currently contains only {{{return_address}}} field, which is set to the address of the instruction to which target function would return control. Note that this field should be used instead of expressions like {{{__builtin_return_address(0)}}}. This is because a handler function is actually called by a trampoline function rather than directly from the place where the target is called. What is usually needed, however, is not the return address of a handler but rather the return address of the target function (to output call stack, etc.).
+    
+
+
+A pre handler may, for example, output the arguments of the function to a trace. Although post handlers seem more suitable for this purpose because they may also output return value of the function, there are situations when a pre handler is preferable (see, for example, [kedr_manual_extend#trace.happensBefore_Parameter_for_Call_Monitoring "trace.happensBefore Parameter for Call Monitoring"]).
+    
+
+
+Another possible goal of a pre handler could be to change the data passes to the function via pointers. The handler cannot change the argument's value itself (this change would be lost when the handler returns), but when the argument is a pointer to some data, the handler can change the latter.
+    
+
+<blockquote><font><b><u>Note</u></b></font>
+
+Care should be taken if a pre handler provided by a payload module changes some arguments of the target function as described above and some other payload modules provide pre handlers for the same function. KEDR itself does not forbid such usage. It is unspecified in which order the pre handlers for a function are invoked. So it is undefined whether one pre handler will see the initial parameters or the ones changed by a pre handler from another payload module.
+        
+
+
+In the future, pre handlers and post handlers registered by different payload modules may be ordered in some way.
+        
+</blockquote>
+
+
+The exact signature of a pre handler is described in [kedr_manual_reference#struct_kedr_pre_pair "struct kedr_pre_pair"]. Apart from having the correct signature, KEDR system imposes no additional restrictions on the pre handlers. 
+    
+
+== Post handler ==
+
+
+A post handler is a user-provided function which is called *after* the corresponding [kedr_manual_glossary#Target_function target function].
+    
+
+
+When the post handler is called, it gets the same argument values as the target function has received before, along with the return value of the target function (if the latter returns value) and an additional argument of type {{{struct kedr_function_call_info *}}}.    
+    
+
+
+The last argument of the replacement function currently contains only {{{return_address}}} field, which is set to the address of the instruction to which target function would return control. Note that this field should be used instead of expressions like {{{__builtin_return_address(0)}}}. This is because a handler function is actually called by a trampoline function rather than directly from the place where the target is called. What is usually needed, however, is not the return address of a handler but rather the return address of the target function (to output call stack, etc.).
+    
+
+
+One common usage of a post handler is to collect function arguments and return value and write them to a trace or a log file or the like.
+    
+
+
+The exact signature of a post handler is described in [kedr_manual_reference#struct_kedr_post_pair "struct kedr_post_pair"]. Apart from having the correct signature, KEDR system imposes no additional restrictions on the post handlers. 
+    
+
+== Payload module ==
+
+
+A payload module is a kernel module that actually contains [kedr_manual_glossary#Pre_handler pre handlers], [kedr_manual_glossary#Post_handler post handlers] and [kedr_manual_glossary#Replacement_function replacement functions] for a particular group of target functions. The core components of KEDR use the information about these handlers when instrumenting the target module.
+    
+
+
+It is payload modules rather than KEDR core that define which data should be collected about the target module, how the execution of the latter should be altered (if it should be at all), etc. Different sets of payload modules may allow to perform different kinds of analysis of the target module.
+    
+
+
+Currently, KEDR provides payload modules for several types of data collection and analysis operations. Custom payload modules can be provided by the user. As long as the payload modules rely on the API defined by KEDR, KEDR makes no difference between the payloads provided with it and the ones supplied by the user.
+    
+
+
+Different payload modules may be used simultaneously as long as they do not provide different replacement functions for one target function.
+    
+
+== Fault simulation ==
+
+
+Fault simulation is one of the many ways to check reliability of a target kernel module. It can be used, among other things, to see if the target module behaves correctly when the operating system fails to complete some of its requests. For example, you may want to find out if the target module crashes the system when there is not enough memory for its operations or if there is no contiguous memory block of a size greater than N, etc. 
+    
+
+
+KEDR allows to perform fault simulation on the target module. The scenarios (which function calls to make fail and in what conditions) can be provided and configured by the user as well. A number of common scenarios is already supported by KEDR by default.
+    
+
+
+The fault simulation scenarios are defined by the [kedr_manual_glossary#Fault_simulation_point fault simulation points] ("What to make fail?") and [kedr_manual_glossary#Fault_simulation_indicator fault simulation indicators] ("In what conditions should this fail?").
+    
+
+== Fault simulation point ==
+
+
+Fault simulation point is a location in a kernel module where it should be decided whether to continue execution as usual ("normal path") or go to a path provided to handle an error of some kind ("error path") or something else. This is similar to an ordinary conditional construct in a module. The decision, however, is made based on some predefined scenario rather than on the actual presence of the error conditions. 
+    
+
+
+A scenario for a simulation point may be contrived. Sometimes, it does not even take into account whether the normal path and the error path are possible. For example, the default memory allocation manager may return error only if there is no memory chunk of appropriate size. A custom allocation manager, however, may contain a fault simulation point with a scenario that additionally prescribes to make every second allocation  request fail, no matter the requested size.
+    
+
+
+In KEDR, fault simulation points are used in the replacement functions. This allows to simulate failures of the target functions according to user-defined scenarios and to see if the target kernel module handles these failures properly (see [kedr_manual_glossary#Fault_simulation "Fault simulation"]). In the normal operation of the target module, such failures can be very rare. Therefore, errors in handling of these failures can be harder to notice and debug. KEDR facilitates checking such paths in the target module.
+    
+
+== Fault simulation indicator ==
+
+
+A fault simulation indicator is usually a function used in a [kedr_manual_glossary#Fault_simulation_point fault simulation point] to make a decision, whether to execute "normal" or "error path" in the code. More often than not, it is a boolean function which returns values corresponding to "make fail" and "do not make fail" decisions. One might say that an indicator implements the scenario for a fault simulation point (i.e., it answers to the question, "In what conditions should this fail?"). 
+    
+
+
+In KEDR, fault simulation points and indicators are largely independent on one another. That is, a fault simulation point may use almost any indicator and the indicator can be easily changed at runtime. The only restriction is that if an indicator expects some parameters from the point, the indicator can not be set for the point that does not provide these parameters. For example, consider an indicator implementing the following scenario "make this fail if {{{size}}} parameter is greater than 1024". If a particular fault simulation point corresponding to some target function has nothing like {{{size}}} parameter, KEDR will not allow to use that indicator for this point (it makes no sense anyway).
+    

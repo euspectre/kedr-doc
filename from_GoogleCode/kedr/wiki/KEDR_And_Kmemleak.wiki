@@ -1,0 +1,17 @@
+#summary Comparison of KEDR (LeakCheck) and Kmemleak
+
+= KEDR (LeakCheck) and Kmemleak =
+
+Kmemleak is a memory leak detector included in the Linux kernel. Its detailed description can be found [http://www.mjmwired.net/kernel/Documentation/kmemleak.txt here].
+
+[http://code.google.com/p/kedr/wiki/kedr_manual_using_kedr#Detecting_Memory_Leaks LeakCheck] from KEDR framework and Kmemleak have different abilities, to some extent. None of these tools is strictly superior to the other one. 
+
+Some of the differences between these two systems are outlined below, in no particular order. Note that these are not just advantages and disadvantages. For each particular use case, it is up to the user to decide which of these tools (or may be some other tool) suits better.
+
+|| *Kmemleak, as of kernel version 3.0.3* || *KEDR (LeakCheck component)* ||
+|| Works in a manner similar to a garbage collector, scanning memory  for orphan objects at regular time intervals. Memory allocation and deallocation functions are tracked and the collection of the the objects allocated but not freed is updated. || Intercepts the calls to memory allocation and deallocation functions, keeps track of the set of the allocated memory blocks that have not been freed yet. Does not scan memory for pointers to these blocks. ||
+|| Can detect memory leaks even if the component being analyzed is still loaded and working. || Reports memory leaks only after the component being analyzed (kernel module, in this case) is unloaded. ||
+|| Can be used during system startup. || Cannot be used during system startup. || 
+|| Operates on the kernel as a whole. It is difficult to restrict the analysis to a particular module or group of modules. || Operates only on the given kernel module, the rest of the kernel is not affected. Currently, KEDR cannot be applied to several kernel modules at the same time. ||
+|| Page allocations and ioremap are not tracked. || Page allocations are tracked, tracking ioremap is not currently supported (but this can be implemented quite easily using the existing infrastructure KEDR provides). ||
+|| If Kmemleak is not enabled by default in the .config file for the kernel, the kernel should be rebuilt before Kmemleak can be used. || Usually, rebuilding the kernel is not necessary to be able to configure, start and stop KEDR. ||

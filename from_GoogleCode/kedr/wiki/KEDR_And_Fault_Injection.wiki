@@ -1,0 +1,37 @@
+#summary Comparison of KEDR (Fault simulation) and Fault Injection framework
+
+= KEDR (Fault simulation facilities) and Fault Injection framework =
+
+Fault Injection framework is included into the Linux kernel. Its detailed description can be found [http://www.mjmwired.net/kernel/Documentation/fault-injection/fault-injection.txt here].
+
+KEDR ([kedr_manual_using_kedr#Fault_Simulation Fault simulation facilities]) and Fault Injection framework have different abilities, to some extent. None of these tools is strictly superior to the other one. 
+
+Many of the differences between the fault simulation facilities from KEDR and Fault Injection framework stem from how these tools process the function calls made by the code being analyzed. In Fault Injection framework, the faults are injected into the called kernel functions themselves (for example, the functions to which `kmalloc` eventually expands). In KEDR, the calls to the kernel functions are replaced with the calls to some other functions in the  the code being analyzed. The kernel functions remain unchanged.
+
+Some of the differences between these two systems are outlined below, in no particular order. Note that these are not just advantages and disadvantages. For each particular use case, it is up to the user to decide which of these tools (or may be some other tool) suits better.
+
+N.B. "f.sim." is an abbreviation for "fault simulation".
+
+|| *Fault Injection Framework, as of kernel version 3.0.3* || *KEDR (Fault Simulation Facilities)* ||
+||Can inject failures in memory allocation operations based on kmalloc() and the related functions as well as alloc_pages(). Works from within these functions, so it has no problems with unknown allocation routines calling them: the failures will be injected. || Can simulate failures for many of the operations based on kmalloc() & Ko as well as alloc_pages(). Works from the caller of these functions and therefore may miss the calls to these if they are not directly made by the module^1^ or implemented as an indirect call (e.g. callback)^2^. ||
+|| Can inject disk IO errors (works inside the block layer: see generic_make_request() and submit_bio(), for example). Similar - for fail_io_timeout. || No f.sim. for disk IO yet but it can be implemented based on the existing infrastructure provided by KEDR. ||
+|| Configurable parameters of the scenario ("what to fail and in what conditions"): fail probability, restriction to the requests from the specified processes, and more.|| Configurable parameters of the scenario ("what to fail and in what conditions"): fail probability, restriction to the requests from the specified processes, and more. ||
+|| For address restriction, all obtained stack frames (32 by default) are analyzed. `save_stack_trace()` is used to get the call stack. This may fail to work on the systems where reliable stack traces cannot be obtained (e.g. those with frame pointer omission active but no stack unwind info used). Not an issue for the custom-built kernels intended for debugging as CONFIG_FRAME_POINTER is usually "y" there. || For address restriction, only the address of the instruction immediately following the call to the target function is analyzed. The mechanism relies only on GCC built-ins and works reliably even if stack traces cannot be obtained due to frame pointer omission and lack of unwind info. ||
+|| Restriction by PID - for each process individually via `/proc/<pid>/make-it-fail`. || Restriction by PID - for a whole process tree (a process with all its descendants). ||
+||  || Several restrictions on caller_address can be specified to define several areas of code to inject failures to, for example:<br/>`(caller_address >= 0xbaad && caller_address <  0xbeef) |``|` <br/> `(caller_address >= 0xdead && caller_address <  0xf00d)"` || 
+|| ||Some of the function parameters can be used in the f.sim. scenarios directly: `size` and `flags` for the allocation routines, `cap` for `capable()`. Examples:<br/> (make it fail if) `"size >= 256 && flags != GFP_ATOMIC"` <br/> (make it fail if) `"cap == CAP_SYS_ADMIN"` ||
+|| Can be applied to the kernel proper as well as to any set of kernel modules. || Can be applied to the given module only. Does not affect the rest of the kernel. ||
+|| Difficult to apply to the operations the target module performs during its initialization (the address range of the corresponding parts of the module are needed but they are not easy to obtain before the initialization of the module). || Easy to apply to the operations the target module performs during its initialization. ||
+|| Can be applied early at boot (when debugfs is not available). || Cannot be applied before debugfs is available. ||
+|| Can be applied to the modules loaded during system startup (basic modules like those for the used filesystem, etc.). || Can be applied only to the modules loaded after KEDR has started. ||
+|| Changing the scenario (besides setting the parameters) requires modifications of the kernel source and rebuild of the kernel. Examples of such changes: making it possible to inject failures into more functions; changing the way the arguments of these functions are handled, etc. || Changing the scenario can usually be done without rebuilding the kernel. In many cases, setting a new f.sim. expression via debugfs is enough. In some other situations (e.g. adding support for f.sim. for a new function), custom plugin modules can be built for KEDR. ||
+|| || Supports f.sim. for `copy_*_user()`. ||
+|| || Supports f.sim. for `capable()`. ||
+|| Supported granularity of probability parameters: 1% || Supported granularity of probability parameters: 1%; 0.01% ||
+|| If fault injection is not enabled in the kernel by default, the kernel should be rebuilt before the framework can be used. Usually, not a problem for the developers but could be a problem in other use cases. || Typically, KEDR does not require rebuild of the kernel before it can be used. ||
+|| Fault injection framework itself does not provide a way to record which calls have failed and which ones have succeeded. Still, it can be used in conjunction with tracing tools ([http://sourceware.org/systemtap/ SystemTap], for example) if this information is necessary. If only a single kernel module is analyzed, it could be possible to use fault injection framework with [kedr_manual_using_kedr#Call_Monitoring_(Call_Tracing) tracing facilities from KEDR] for this purpose. || It is often useful to see which exactly calls failed, especially if the faults are injected at random. This makes it easier to analyze the errors in the kernel discovered during fault simulation. Fault simulation from KEDR can be used, for example, with [kedr_manual_using_kedr#Call_Monitoring_(Call_Tracing) tracing facilities] KEDR also provides, or may be with other tracing systems for the kernel. This allows to record what exactly happened during fault simulation. ||
+
+
+`[1]` We have seen some examples of this but adding support for fault simulation for additional kmalloc-like functions is relatively easy (see the examples provided with KEDR).
+
+`[2]` [http://code.google.com/p/kedr-callback-operations-interception/ KEDR-COI] project allows to handle at least some situations of this kind.

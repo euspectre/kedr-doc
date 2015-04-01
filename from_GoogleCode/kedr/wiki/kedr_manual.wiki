@@ -1,0 +1,66 @@
+#summary KEDR Manual: Title Page and Table of Contents
+
+= KEDR 0.5 Reference Manual =
+
+_Authors: Eugene Shatokhin, Andrey Tsyvarev_
+
+*KEDR Framework version 0.5 (May 12, 2014)*
+
+Copyright © 2012-2014 KEDR development team
+
+Copyright © 2010-2012 Institute for System Programming of the Russian Academy of Sciences (ISPRAS)
+
+== Table of Contents ==
+
+<dl>
+<dt>[kedr_manual_intro Introduction]</dt>
+<dt>[kedr_manual_overview Overview]</dt>
+<dd><dl><dt>[kedr_manual_overview#General General]</dt>
+<dt>[kedr_manual_overview#Types_of_Analysis_KEDR_Supports Types of Analysis KEDR Supports]</dt>
+<dt>[kedr_manual_overview#System_Requirements System Requirements]</dt>
+<dt>[kedr_manual_overview#Common_Use_Case Common Use Case]</dt>
+<dt>[kedr_manual_overview#Key_Technologies_KEDR_Relies_Upon Key Technologies KEDR Relies Upon]</dt>
+<dt>[kedr_manual_overview#Limitations Limitations]</dt>
+<dt>[kedr_manual_overview#Reporting_Bugs_and_Asking_Questions Reporting Bugs and Asking Questions]</dt>
+</dl>
+</dd>
+<dt>[kedr_manual_getting_started Getting Started]</dt>
+<dd><dl><dt>[kedr_manual_getting_started#Installation Installation]</dt>
+<dt>[kedr_manual_getting_started#Analyzing_the_Sample_Module Analyzing the Sample Module]</dt>
+<dt>[kedr_manual_getting_started#Detecting_Memory_Leaks Detecting Memory Leaks]</dt>
+<dt>[kedr_manual_getting_started#Fault_Simulation Fault Simulation]</dt>
+<dt>[kedr_manual_getting_started#Call_Monitoring_(Call_Tracing) Call Monitoring (Call Tracing)]</dt>
+<dt>[kedr_manual_getting_started#Doing_It_All_at_Once Doing It All at Once]</dt>
+</dl>
+</dd>
+<dt>[kedr_manual_using_kedr Using KEDR]</dt>
+<dd><dl><dt>[kedr_manual_using_kedr#Controlling_KEDR Controlling KEDR]</dt>
+<dt>[kedr_manual_using_kedr#Capturing_the_Trace Capturing the Trace]</dt>
+<dt>[kedr_manual_using_kedr#How_KEDR_Works How KEDR Works]</dt>
+<dt>[kedr_manual_using_kedr#Call_Monitoring_(Call_Tracing) Call Monitoring (Call Tracing)]</dt>
+<dt>[kedr_manual_using_kedr#Fault_Simulation Fault Simulation]</dt>
+<dt>[kedr_manual_using_kedr#Detecting_Memory_Leaks Detecting Memory Leaks]</dt>
+<dt>[kedr_manual_using_kedr#Analyzing_the_Call_Location_Information Analyzing the Call Location Information]</dt>
+</dl>
+</dd>
+<dt>[kedr_manual_extend Customizing and Extending KEDR]</dt>
+<dd><dl><dt>[kedr_manual_extend#Using_Code_Generator_to_Create_Custom_Modules Using Code Generator to Create Custom Modules]</dt>
+<dt>[kedr_manual_extend#Writing_Custom_Payloads_for_Call_Monitoring Writing Custom Payloads for Call Monitoring]</dt>
+<dt>[kedr_manual_extend#trace.happensBefore_Parameter_for_Call_Monitoring trace.happensBefore Parameter for Call Monitoring]</dt>
+<dt>[kedr_manual_extend#Writing_Custom_Payloads_for_Fault_Simulation Writing Custom Payloads for Fault Simulation]</dt>
+<dt>[kedr_manual_extend#Writing_Custom_Scenarios_for_Fault_Simulation Writing Custom Scenarios for Fault Simulation]</dt>
+<dt>[kedr_manual_extend#Implementing_Custom_Types_of_Analysis Implementing Custom Types of Analysis]</dt>
+</dl>
+</dd>
+<dt>[kedr_manual_reference KEDR Reference]</dt>
+<dd><dl><dt>[kedr_manual_reference#API_for_Payload_Modules API for Payload Modules]</dt>
+<dt>[kedr_manual_reference#Creating_Trampolines Creating Trampolines]</dt>
+<dt>[kedr_manual_reference#Standard_Payloads_for_Call_Monitoring Standard Payloads for Call Monitoring]</dt>
+<dt>[kedr_manual_reference#Standard_Fault_Simulation_Payloads Standard Fault Simulation Payloads]</dt>
+<dt>[kedr_manual_reference#Standard_Fault_Simulation_Scenarios Standard Fault Simulation Scenarios]</dt>
+<dt>[kedr_manual_reference#API_for_Fault_Simulation API for Fault Simulation]</dt>
+</dl>
+</dd>
+<dt>[kedr_manual_glossary Glossary]</dt>
+
+</dl>

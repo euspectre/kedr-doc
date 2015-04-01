@@ -1,0 +1,33 @@
+#summary KEDR Manual: Introduction
+
+<wiki:toc max_depth="2" />
+
+= Introduction =
+
+
+*KEDR framework* provides the tools to facilitate runtime analysis of kernel modules (including device drivers, file system modules, etc.) in Linux. "<b>KEDR</b>" is an acronym for "<b>KE</b>rnel-mode <b>D</b>rivers in <b>R</b>untime". The framework is intended for the developers of kernel modules and, in particular, it may be useful for building automated verification systems for kernel-mode software.
+
+
+
+The tools provided by KEDR operate on a kernel module chosen by the user (<i>target module</i>). They collect information about the calls to the kernel functions that the module makes and output it to the trace, perform fault simulation, detect memory leaks, etc. This may complement the existing tools for fault injection, memory checking, etc., that usually operate on the Linux kernel as a whole.
+
+
+
+The typical usage of KEDR is as follows. The user works with the target kernel module normally or maybe runs some specific tests on it. At the same time, KEDR tools are monitoring the operation of the module, checking if it works correctly, doing fault simulation if requested, dumping the data about the actions made by the module to the trace file for future analysis, etc. 
+
+
+
+KEDR framework is designed to be easy to extend and build upon. For example, the set of kernel functions to be monitored is fully customizable; fault simulation scenarios can also be provided and controlled by the user. Besides that, KEDR features a plugin-based architecture and provides an interface to implement custom types of data collection and analysis in addition to the ones mentioned above.
+
+
+
+Currently, KEDR works on x86 and x86-64 architectures. 
+
+
+
+KEDR is free software and is distributed under the terms of [http://www.gnu.org/licenses/old-licenses/gpl-2.0.html GNU General Public License Version 2].
+
+
+
+The latest stable version of KEDR as well as the source code repository can be found at the project site [http://code.google.com/p/kedr/ at Google Code].
+

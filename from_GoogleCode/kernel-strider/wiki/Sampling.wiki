@@ -1,0 +1,48 @@
+#summary Event Sampling
+
+== Event Sampling ==
+
+The amount of data collected and output by !KernelStrider can be rather high and the data are produced at a significant rate (e.g. as high as 10-100Mb per second or more in some cases). The output subsystem of !KernelStrider may not always cope well with that and may lose events as a result, making the collected data unusable.
+
+To alleviate this problem, !KernelStrider supports _event sampling_, similar to [http://code.google.com/p/data-race-test/wiki/LiteRaceSampling what ThreadSanitizer uses].
+
+The idea is that many events to be processed are often from the fragments of the analyzed kernel modules that are executed again and again. Sampling means skipping some of these repetitive events, in the hopes that this will not result in too much missed races. 
+
+Note that only memory access events are affected by sampling. Synchronization events, function call events, etc., are always output.
+
+You can set sampling rate when starting !KernelStrider, specify it in `--sampling_rate` parameter for _kedr.py_, for example:
+
+{{{
+kedr.py start --tools=KernelStrider --targets=my_driver --sampling_rate=20
+}}}
+
+Sampling rate is an integer, 0 - 31. 0 (default) means that sampling is disabled and all events will be recorded and output, 1 - minimal sampling, 31 - the most aggressive sampling.
+
+Note that if you load kernel-mode components of !KernelStrider manually rather than with _kedr.py_, you can set sampling rate with `sampling_rate` parameter of _kedr_mem_core.ko_ module.
+
+== Experimental results ==
+
+Kernel module under analysis: e1000
+
+OS: ROSA Fresh R`2`, 32-bit
+
+Use case: http://speedof.me network speed test, ran it once for each sampling rate listed below.
+
+|| *Sampling rate* || *Trace size, Mb* || *Events passed to TSan* || *Races found* ||
+|| 0 (disabled) || 81.7 || 19444327 || 39 ||
+|| 1 || 87.7 || 20711761 || 39 ||
+|| 5 || 73.6 || 17291371 || 42 ||
+|| 10 || 162.5 || 38902371 || 39 ||
+|| 15 || 65.1 || 15317664 || 44 ||
+|| 20 || 39.6 || 8022815 || 46 ||
+|| 25 || 11.8 || 3608802 || 27 ||
+|| 30 || 14.4 || 6184400 || 25 ||
+|| 31 || 7.5 || 3214116 || 30 ||
+
+The load on the driver was apparently different each time to some extent. This was probably the cause of the trace size increase with sampling rate 10, etc. 
+
+The trend is still visible though. The reduction of trace size (compared to the size with no sampling) becomes significant starting from sampling rate 15. On the other hand, the missed races appear around sampling rate 25.
+
+So, sampling rate of 15-20 looks reasonable here: 20-50% less trace size, 20-60% less events for !ThreadSanitizer to process without too many lost races.
+
+Perhaps, the reasonable sampling rates are indeed somewhere between 15 and 25 as the developers of !ThreadSanitizer [http://code.google.com/p/data-race-test/wiki/LiteRaceSampling suggest].

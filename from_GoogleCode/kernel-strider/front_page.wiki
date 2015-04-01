@@ -1,0 +1,28 @@
+=== About ===
+
+!KernelStrider project provides the tools to collect data about the operation of Linux kernel modules (device drivers, file system modules, etc.) in runtime. The tools collect information about the memory accesses and function calls that the target kernel modules make. The information is passed to the user space for further processing.
+
+To achieve this, !KernelStrider implements relatively lightweight binary instrumentation facilities for the kernel modules (x86 only at the moment).
+
+!KernelStrider is tailored to providing data for offline data race detectors (like [http://code.google.com/p/data-race-test/wiki/ThreadSanitizerOffline ThreadSanitizer offline]). This allows detecting the concurrency issues of this kind in the Linux kernel modules. 
+
+See the [KernelStrider_Tutorial step-by-step guide] to learn how to build and install !KernelStrider and how to use it with !ThreadSanitizer. After the tools have found potential races, [https://github.com/winnukem/racehound RaceHound system] can be used to check if these races actually happen in a given usage scenario, see [http://code.google.com/p/kernel-strider/wiki/RaceHound_Tutorial this guide for details].
+
+Some of the races found this way are listed here: [http://code.google.com/p/kernel-strider/wiki/RacesFound RacesFound].
+
+The technologies and tools developed in this project are planned to be incorporated in [http://code.google.com/p/kedr/ KEDR framework] in the future.
+
+=== Downloads ===
+Current version: [https://www.dropbox.com/s/lhl7uitj6vip6zc/kernel-strider-0.3.1.tar.xz KernelStrider 0.3.1]
+
+You can also use the latest code [http://code.google.com/p/kernel-strider/source/checkout from the repository]. Bug fixes get there first, as well as support for newer kernel versions.
+
+=== Talks and Slides ===
+Here are the slides from the talk about race detection tools for the Linux kernel at LinuxCon Europe 2013 (KernelStrider is described there too): [https://www.dropbox.com/s/bwmaghcc4uzejmh/LinuxCon_2013-Shatokhin-v03.pdf slides (PDF)]
+
+The notes and explanations for the slides are also available: [https://www.dropbox.com/s/etw7w4tmtzecs5b/speaker_notes.odt speaker_notes.odt].
+
+The code of the kernel module used in the demo is here: [https://www.dropbox.com/s/fk6hh0b8epl5em8/lc2013-example1.tar.xz lc2013-example1.tar.xz]
+----
+
+<i>The project was supported by a Google Research Award (2011): "Instrumentation and Data Collection Framework for Dynamic Data Race Detection in Linux Kernel Modules."</i>

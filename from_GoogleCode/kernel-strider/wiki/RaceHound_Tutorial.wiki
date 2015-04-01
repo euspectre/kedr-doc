@@ -1,0 +1,263 @@
+#summary Tutorial: How to use RaceHound to check the results of KernelStrider
+#labels Featured
+
+!KernelStrider and [https://github.com/winnukem/racehound RaceHound] will be used here to analyze e1000 network driver (Intel), which is common in virtual machines for example.
+
+Note that the basic operations with !KernelStrider as well as the prerequisites are covered in [http://code.google.com/p/kernel-strider/wiki/KernelStrider_Tutorial another tutorial]. It is assumed that the reader is already familiar with that.
+
+== Building and Installing !RaceHound ==
+
+First, clone its git repository at !GitHub to get the sources:
+
+{{{
+$ git clone https://github.com/winnukem/racehound
+}}}
+
+Create the directory for the build and cd to it:
+
+{{{
+$ mkdir build
+$ cd build
+}}}
+
+Configure the project with cmake, then build it:
+
+{{{
+$ cmake path-to-racehound-sources
+$ make
+}}}
+
+Install the tool to the default location (as root):
+
+{{{
+# make install
+}}}
+
+== Analyzing e1000 ==
+
+Now, make sure e1000 is not loaded and unload it if it is:
+
+{{{
+# modprobe -r e1000
+}}}
+
+Now load !KernelStrider tool as well as other necessary components (_/usr/local/bin_ is assumed to be in $PATH here):
+
+{{{
+# kedr.py start --tools=KernelStrider --targets=e1000 --nr_data_pages=16384
+}}}
+
+64 Mb (16384 memory pages) will be used as the output data buffer. Perhaps, a smaller amount would do but let us stick to that value now.
+
+Prepare to record the events from e1000 to trace.dat file:
+
+{{{
+# kedr_st_recorder trace.dat &
+}}}
+
+Load e1000:
+
+{{{
+# modprobe e1000
+}}}
+
+Now open a browser, run a network speed test like http://speedof.me, for example, may be download a couple of files. The events happened in e1000 during that time will be recorded in _trace.dat_.
+
+Unload the driver:
+
+{{{
+# modprobe -r e1000
+}}}
+
+Check that no events have been lost:
+
+{{{
+# cat /sys/kernel/debug/kedr_simple_trace_recorder/events_lost
+}}}
+
+The command should output 0. If it reports instead that some events have been lost, you need to start the process all over again. Perhaps, increasing `nr_data_pages` or [http://code.google.com/p/kernel-strider/wiki/Sampling enabling sampling] may help.
+
+If nothing has been lost, then !KernelStrider can be unloaded:
+
+{{{
+# kedr.py stop
+}}}
+
+The collected event trace (_trace.dat_) may be 100-200 Mb in size in this case, or sometimes more.
+
+Now let the tools analyze the collected data. To resolve the source lines in the report, debug information for e1000 is needed. In this case, it is in a separate file, _e1000.ko.debug_, so use it here rather than _e1000.ko_ itself. The analysis may take a while, especially on slow machines.
+
+{{{
+$ tsan_process_trace e1000.ko.debug < trace.dat > report.txt
+}}}
+
+In our experiments, around 30-40 potential races in e1000 were reported in this usage scenario.
+
+Let us consider this one:
+
+{{{
+WARNING: Possible data race during write of size 4 at 0xef310c80:
+   T6 (L{L7}):
+    #0  dql_queued (dynamic_queue_limits.h:76)
+    #0  netdev_tx_sent_queue (netdevice.h:1990)
+    #0  netdev_sent_queue (netdevice.h:2012)
+    #0  e1000_xmit_frame (e1000_main.c:3264)
+  Concurrent read(s) happened at (OR AFTER) these points:
+   T4 (L{}):
+    #0  netdev_tx_completed_queue (netdevice.h:2031)
+    #0  netdev_completed_queue (netdevice.h:2042)
+    #0  e1000_clean_tx_irq (e1000_main.c:3881)
+    #0  e1000_clean (e1000_main.c:3812)
+  Locks involved in this report (reporting last lock sites): {L7}
+   L7 (0xef310c40)
+    #0  e1000_xmit_frame (e1000_main.c:3110)
+   Race verifier data: e1000:.text+0x1ef6,e1000:.text+0x3598
+}}}
+
+The race is between the following fragments of the code (_include/linux/dynamic_queue_limits.h_):
+
+{{{
+/*
+ * Record number of objects queued. Assumes that caller has already checked
+ * availability in the queue with dql_avail.
+ */
+static inline void dql_queued(struct dql *dql, unsigned int count)
+{
+	BUG_ON(count > DQL_MAX_OBJECT);
+
+	dql->num_queued += count;
+	dql->last_obj_cnt = count;
+}
+}}}
+
+{{{
+/* Returns how many objects can be queued, < 0 indicates over limit. */
+static inline int dql_avail(const struct dql *dql)
+{
+	return dql->adj_limit - dql->num_queued;
+}
+}}}
+
+The accesses to `dql->num_queued` are not synchronized. It is up to the developers of e1000 to estimate the severity of this race. It may well be benign - or not.
+
+Now !RaceHound will be used to check if the race does actually happen in a particular usage scenario.
+
+Note "Race verifier data" at the end of the report above. `.text+0x1ef6` and `.text+0x3598` help identify the conflicting instructions. The first one is specified exactly. The second one is the conflicting instruction or an instruction a bit before that (this is due to how !ThreadSanitizer works).
+
+It is easier to point !RaceHound to monitor the first instruction, the one that is specified exactly.
+
+It is `.text+0x1ef6` and it belongs to `e1000_xmit_frame` (the pseudo stack frames above are from the inlined functions, by the way). Using a disassembly of _e1000.ko_ (obtained with `'objdump -dr e1000'`, for example), you can find that `e1000_xmit_frame` starts at `.text+0x1650`.
+
+So the instruction to be monitored is `e1000_xmit_frame+0x8a6`.
+
+Now load !RaceHound:
+
+{{{
+# insmod /usr/local/lib/modules/$(uname -r)/misc/race_hound.ko target_name=e1000
+}}}
+
+Specify the instruction to monitor:
+
+{{{
+# echo 'e1000_xmit_frame+0x8a6' > /sys/kernel/debug/race_hound/breakpoints
+}}}
+
+Load e1000 again:
+
+{{{
+# modprobe e1000
+}}}
+
+!RaceHound has now set a software breakpoint to the specified instruction in e1000. If it triggers, !RaceHound will determine the memory address the instruction is about to access. The tools will then monitor the accesses to that memory address using a hardware breakpoint for a short time (5 jiffies by default). Then it will let the original instruction execute as usual.
+
+So, if some other thread will access that memory at that time, the hardware breakpoint will trigger and !RaceHound will report a race to the system log.
+
+Now do the same things as before to make e1000 work: run speedof.me test in the browser, etc. 
+Watch the messages output to the system log ('dmesg') during that process.
+
+Messages similar to the following ones may appear (line breaks have been inserted for readability):
+
+{{{
+[22031.185652] [rh] Detected a data race on the memory block at f0fa4180 
+between the instruction at f6df8ef6 
+  (e1000_xmit_frame+0x8a6/0xf20 [e1000], CPU=1, 
+  task_struct=e4552670, comm: "DNS Resolver #1") 
+and the instruction right before f6dfa59e 
+  (e1000_clean+0x13e/0x860 [e1000], CPU=0, 
+  task_struct=c08cc1a0, comm: "swapper/0").
+
+[22046.985031] [rh] Detected a data race on the memory block at f0fa4180 
+between the instruction at f6df8ef6 
+  (e1000_xmit_frame+0x8a6/0xf20 [e1000], CPU=1, 
+  task_struct=e4552670, comm: "DNS Resolver #1") 
+and the instruction right before c042775b 
+  (dql_completed+0xb/0x180, CPU=0, 
+  task_struct=c08cc1a0, comm: "swapper/0").
+}}}
+
+As you can see, at least 2 races on the same data happened while !RaceHound was monitoring e1000. Note that the second race (`e1000_xmit_frame` VS `dql_completed`) is actually between e1000 and the kernel proper rather than between 2 fragments of the code in e1000.
+
+From the disassembly of e1000, one may found that the instruction preceding `e1000_clean+0x13e` is `e1000_clean+0x138 (.text+0x3598)`.
+
+You can now use *addr2line* from binutils, GDB or some other tool to find the corresponding source code:
+
+{{{
+$ addr2line -e e1000.ko.debug -i -f -s -j .text 0x3598
+netdev_tx_completed_queue
+netdevice.h:2031
+
+netdev_completed_queue
+netdevice.h:2042
+
+e1000_clean_tx_irq
+e1000_main.c:3881
+
+e1000_clean
+e1000_main.c:3812
+}}}
+
+This is the same location as reported by !ThreadSanitizer above. So, yes, this race does actually happen.
+
+Let us find the source code corresponding to the conflicting instruction in the second race. It may be alreasy obvious from the source code of `dql_completed()` in the kernel but let us go all the way this time. Here we that assume vmlinux image with debug info for the kernel is `/boot/vmlinux`.
+
+The start address of dql_completed can be determined from _/proc/kallsyms_ (as root):
+
+{{{
+# cat /proc/kallsyms | grep dql_completed
+c0427750 T dql_completed
+c088fd4c r __ksymtab_dql_completed
+c089b07c r __kcrctab_dql_completed
+c08ad647 r __kstrtab_dql_completed
+}}}
+
+The address is 0xc0427750. 
+
+The instruction preceding dql_completed+0xb contains the byte at `dql_completed+0xa` (0xc042775a). You can use *addr2line* for it to get to the source code:
+
+{{{
+$ addr2line -e /boot/vmlinux-3.10.29-nrj-desktop-84rosa -i -f 0xc042775a
+dql_completed
+<...path on build system...>/lib/dynamic_queue_limits.c:23
+}}}
+
+Take a look at the code:
+
+{{{
+17 void dql_completed(struct dql *dql, unsigned int count)
+18 {
+19     unsigned int inprogress, prev_inprogress, limit;
+20     unsigned int ovlimit, completed, num_queued;
+21     bool all_prev_completed;
+22
+23     num_queued = ACCESS_ONCE(dql->num_queued);
+<...>
+}}}
+
+Yes, the read of `dql->num_queued` there conflicts with incrementing it in `dql_queued()` shown above.
+
+At last, e1000 can be unloaded and after that - !RaceHound.
+
+{{{
+# modprobe -r e1000
+# rmmod race_hound
+}}}

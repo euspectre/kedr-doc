@@ -1,0 +1,61 @@
+#summary Known issues in KEDR framework
+
+<wiki:toc max_depth="4"/>
+
+= Known Issues in KEDR Framework =
+
+== Issues when rebuilding KEDR after kernel version change ==
+As many components of KEDR are themselves kernel modules, KEDR needs to be rebuilt when the version of the Linux kernel changes on your system, for example, if you have upgraded the kernel. 
+
+Build problems may occur in this situation if you try to reconfigure and rebuild KEDR with the previous contents of its build tree in place. Fortunately, this is quite easy to avoid because KEDR relies on out-of-source build and its source tree should remain unchanged during the build. Simply remove the contents of the build tree and after that, configure, build and install KEDR again as described in [kedr_manual_getting_started "Getting Started"].
+
+
+== Return address of an intercepted call is not always determined ==
+Sometimes you can find records like the following one in the trace output by KEDR call monitoring and fault simulation facilities:
+
+{{{
+called_kfree: ([<c02fb5b5>] unknown+0xffffffffc02fb5b5) arguments: (cbf5ac00) 
+}}}
+
+This may happen is if the compiler decided to use `jmp` rather than `call` machine instruction to implement the call to some function. This can make it more difficult to find the place in the source code of the module that call corresponds to. So far, we have only seen this happening for the constructs in the sources like the following one:
+
+{{{
+void some_func(...)
+{
+    <...>
+    kfree(ptr);
+}
+}}}
+
+That is, the call to a function that returns `void` is made just before the end of the outer function that also returns `void`. Try to look for such constructs in the source code of the target module and this may help you find the source lines corresponding to the trace records of this kind.
+
+Note that in such situations as described above, call stack information output by memory leak detector ([kedr_manual_using_kedr#Detecting_Memory_Leaks LeakCheck]) may also be incomplete: the calls to some of the functions affected by this compiler optimization may be missing there.
+
+
+== False memory leaks when two or more kernel modules are involved ==
+Currently, KEDR allows to analyze only one kernel module at a time. As a consequence, if memory is allocated by one module and freed by another one, the memory leak detector will report it as a possible leak or an unallocated free depending on which of the modules is being analyzed. 
+
+A similar situation takes place when the memory is allocated by a module but freed by the kernel proper.
+
+Here are some of the examples of such situations we have observed so far.
+
+  * Memory management in `9p` and `9pnet` kernel modules. One of these allocates memory, the other one releases it.
+
+  * Page fault handling in `vboxsf.ko` kernel module from [http://www.virtualbox.org/ VirtualBox] Guest Additions. The module registers a fault handler (`sf_reg_fault()`) and, if the handler is successful, the memory page it returns is actually freed by the kernel itself. !LeakCheck currently considers this as a memory leak while it is actually not.
+
+ * Another situation when such false alarms show up is related to the cached ACLs (`struct posix_acl` instances) created by filesystem modules. In some cases, such objects are freed only when the corresponding inodes are destroyed by the kernel (when `iput_final()` is executed or during `.killsb()` operation of the file system).
+
+
+== False "unallocated frees" in 'readahead' callbacks of file system modules ==
+
+Similarly to the issue described above, !LeakCheck may report false "unallocated frees" in 'readahead' callbacks of the file system modules (e.g. btrfs, ceph, etc.). This is because the memory pages processed by these callbacks are allocated by the kernel proper rather than by the corresponding file system module.
+
+If the call stack for a reported "unallocated free" event contains something like `__do_page_cache_readahead()`, this false alarm could be due to this issue.
+
+== Less detailed reports when stack traces are unreliable ==
+
+On some systems, stack traces obtained with `dump_trace()/save_stack_trace()` are not reliable by default, Debian 6 is an example. On such systems, the memory leak detector will report only call addresses for suspicious allocation and deallocation operations there rather than the whole call stack. 
+
+Note _caller_address_ variable *is* supported in fault simulation scenarios even on such systems.
+
+If the detailed call stack information is desirable, it is recommended to rebuild the kernel with CONFIG_FRAME_POINTER or CONFIG_STACK_UNWIND (if available) parameter set. After rebuilding the kernel, you can configure, build and install KEDR. If you have built KEDR on this system before, it it recommended to use a different build directory this time (or just remove the contents of the old one).

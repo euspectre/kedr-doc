@@ -1,0 +1,79 @@
+#summary Instructions for analyzing network drivers with KernelStrider
+#labels Featured
+
+= Detecting Data Races in Network Drivers =
+
+The operations necessary to apply !KernelStrider to the network drivers on Linux are described here.
+
+It is assumed here that !KernelStrider and !ThreadSanitizer are already installed and the appropriate tools are in _/usr/local/bin/_. For the build and installation instructions as well as for an example of basic usage, see [KernelStrider_Tutorial the step-by-step guide].
+
+Make sure the target modules are not loaded at the moment.
+
+The commands below should be executed as root unless stated otherwise.
+
+1. Mount debugfs if it is not mounted yet.
+
+2. Load the kernel-mode components:
+{{{
+# /usr/local/bin/kedr.py start --tools=KernelStrider \
+         --targets=<list_of_target_names> \
+         --nr_data_pages=32768
+}}}
+
+More than one target module can be specified, all targets will be processed as a group. This is especially useful when analyzing the !WiFi stack, for example, where 3-5 or more modules are in effect.
+
+If `--targets=<...>` is omitted, all modules that are loaded after that will be targets except those with names starting with _"kedr"_ or _"test"_.
+
+The names of the target modules must be separated by commas (no spaces!) in the list. 
+
+The list of currently loaded target modules is available in _/sys/kernel/debug/kedr_mem_core/loaded_targets_ file. If no targets are loaded, the file will contain "none".
+
+The output subsystem is also loaded by the command above and gets 128 Mb of kernel memory (32768 pages) for the data to be output. 
+
+128 Mb may be an overkill, a smaller amount may also do. Check the number of the events lost by the output subsystem in _/sys/kernel/debug/kedr_simple_trace_recorder/events_lost_ file. If there are some, a larger amount of memory is needed to store the data to be output. In this case, unload the targets, stop collecting the trace, stop and then start !KernelStrider again with a larger value of `nr_data_pages` (must always be a power of 2, must not exceed 65536).
+
+3. Note that instead of using `kedr.py`, you may load all the components manually but usually that is not necessary:
+
+{{{
+# insmod /usr/local/lib/modules/$(uname -r)/misc/kedr_mem_core.ko \
+         targets=<list_of_target_names_or_*>
+# insmod /usr/local/lib/modules/$(uname -r)/misc/kedr_fh_drd_common.ko
+# insmod /usr/local/lib/modules/$(uname -r)/misc/kedr_fh_drd_net.ko
+# insmod /usr/local/lib/modules/$(uname -r)/misc/kedr_simple_trace_recorder.ko \
+         nr_data_pages=32768
+}}}
+
+4. Start saving the trace to _trace.dat_ file.
+
+{{{
+# /usr/local/bin/kedr_st_recorder trace.dat &
+}}}
+
+5. Load the target modules and make them work in a usage scenario of your choice.
+From time to time, check if some events are lost as described above.
+
+6. Unload the targets. When the last of them is unloaded, `kedr_st_recorder` should exit automatically.
+
+7. Unload the components of !KernelStrider.
+
+{{{
+# /usr/local/bin/kedr.py stop
+}}}
+
+or manually:
+
+{{{
+# rmmod kedr_simple_trace_recorder
+# rmmod kedr_fh_drd_common kedr_fh_drd_net
+# rmmod kedr_mem_core
+}}}
+
+8. The processing of the trace may be done as a normal user, root privileges are not required.
+
+To have a usable report with the list of found races, it is better to collect the files with the debug info for the target modules. In a custom-built kernel, the .ko files themselves may contain the debug info. In the stock kernels, it is usually placed into separate .ko.debug files.
+
+{{{
+$ /usr/local/bin/tsan_process_trace <files_with_debug_info> < trace.dat > report.txt
+}}}
+
+This operation make take some time, e.g. from a couple of minutes to dozens of minutes when analyzing the trace produced by the target drivers in 10-15 minutes. If you like, you can copy _trace.dat_ to a more powerful machine with !KernelStrider installed and process it there.

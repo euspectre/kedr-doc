@@ -1,0 +1,26 @@
+#summary The instructions how to build KEDR for another kernel
+
+= How to Build KEDR for Another Kernel =
+
+Sometimes more than one kernel is installed on a machine and you might want to build KEDR for one of these kernels, different from the currently running kernel. Starting from version 0.2.1, KEDR supports this. 
+
+Suppose you would like to build KEDR for the kernel, say, "2.6.39-testbox" and you have build files for that kernel in /lib/modules/2.6.39-testbox/build, as usual. 
+
+It is assumed below that KEDR version 0.x.y is used, its sources are unpacked to subdirectory _kedr-0.x.y_ and the build process will take place in _build_ subdirectory.
+
+From _build_ subdirectory, configure KEDR as follows:
+
+<pre>
+cmake \
+  -DCMAKE_TOOLCHAIN_FILE=../kedr-0.2.1/cmake/platform/linux-x86-generic.cmake \
+  -DCMAKE_SYSTEM_VERSION="2.6.39-testbox" \
+  ../kedr-0.x.y
+</pre>
+
+After that, you can execute `make` and `make install` as usual. 
+
+As you can see, one of the differences from the ordinary build is that you also need to specify the version of the target system (i.e. the value that `uname -r` would return for that system) explicitly in CMAKE_SYSTEM_VERSION. 
+
+You also need to tell the build system that it is actually a cross-build. The parameters appropriate for this build type are set in the so called _toolchain files_. If you build KEDR for another kernel on the same machine (or at least a machine with the same architecture), you can select _linux-x86-generic.cmake_ toolchain file that KEDR provides.
+
+Note that self-testing support (`make check`) is currently disabled for such cross-builds. The documentation and the examples are not installed in this case either.

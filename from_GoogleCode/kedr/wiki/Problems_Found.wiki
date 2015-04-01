@@ -1,0 +1,19 @@
+#summary Some of the problems in kernel modules revealed by KEDR tools
+
+= Problems in Kernel Modules Found by KEDR =
+
+The examples of real problems in the Linux kernel modules found with the help of KEDR-based tools are shown below.
+
+|| *Component* || *Problem Summary* || *Reported to* || *Status* ||
+|| [http://kernel.org/ Linux kernel], Ext4 FS module || NPD when using sb->s_fs_info during clean-up after a failed mount || Kernel Bug Tracker, [https://bugzilla.kernel.org/show_bug.cgi?id=26752 bug #26752] || confirmed, fixed in the kernel version 2.6.39-rc1 ||
+|| [http://kernel.org/ Linux kernel], Ext4 FS module || Calling kfree() for uninitialized pointer in ext4_mb_init_backend() || Kernel Bug Tracker, [https://bugzilla.kernel.org/show_bug.cgi?id=30872 bug #30872] || confirmed, fixed in the kernel version 2.6.39-rc1 ||
+|| [http://www.virtualbox.org/ VirtualBox], Guest Additions || Memory leak in sf_lookup || !VirtualBox bug tracker, [http://www.virtualbox.org/ticket/7705 ticket #7705] || confirmed, fixed in !VirtualBox 3.2.12 ||
+|| [http://www.virtualbox.org/ VirtualBox], Guest Additions  || g_vbgldata.mutexHGCMHandle is never destroyed || !VirtualBox bug tracker, [http://www.virtualbox.org/ticket/7720 ticket #7720] || confirmed, fixed in !VirtualBox 3.2.12 ||
+|| [http://www.virtualbox.org/ VirtualBox], Guest Additions || Possible memory leak in sf_follow_link || !VirtualBox bug tracker, [http://www.virtualbox.org/ticket/8185 ticket #8185] || confirmed, fixed in !VirtualBox 4.0.4 ||
+|| [http://kernel.org/ Linux kernel], FAT FS module || Memory allocation failure is not handled in fat_cache_add() || Kernel Bug Tracker, [https://bugzilla.kernel.org/show_bug.cgi?id=24622 bug #24622] || confirmed, fixed in the kernel version 3.0 ||
+|| [http://kernel.org/ Linux kernel], ath5k module (wireless networking) || Memory kcalloc'ed in ath5k_eeprom_convert_pcal_info`_``*`() is not always kfree'd || Kernel Bug Tracker, [https://bugzilla.kernel.org/show_bug.cgi?id=32722 bug #32722] || confirmed, fixed in the kernel version 3.0 ||
+|| [http://kernel.org/ Linux kernel], ath5k module (wireless networking) || (ath5k) Not all elements of chinfo`[`pier`]`.pd_curves`[``]` are freed || Kernel Bug Tracker, [https://bugzilla.kernel.org/show_bug.cgi?id=32942 bug #32942] || confirmed, fixed in the kernel version 3.0 ||
+|| [http://kernel.org/ Linux kernel], ath5k module (wireless networking) || (ath5k) sc->ah is allocated in ath5k_init_softc() but is not freed || Kernel Bug Tracker, [https://bugzilla.kernel.org/show_bug.cgi?id=37592 bug #37592] || confirmed, fixed in the kernel version 3.1-rc1 ||
+|| [http://kernel.org/ Linux kernel], Btrfs module || Possible memory leak in btrfs kernel module during xfstests test 002 || Kernel Bug Tracker, [https://bugzilla.kernel.org/show_bug.cgi?id=47101 bug #47101] || not confirmed yet ||
+|| [http://kernel.org/ Linux kernel], Ext4 FS module || ext4_fill_super() reports success even if ext4_mb_init() fails || ext4 mailing list: [http://thread.gmane.org/gmane.comp.file-systems.ext4/34743 thread] || confirmed ||
+|| [http://kernel.org/ Linux kernel], XFS module || 'xfs_uuid_table' allocated in xfs_uuid_mount() is never freed || Kernel Bug Tracker, [https://bugzilla.kernel.org/show_bug.cgi?id=48651 bug #48651] || not confirmed yet ||

@@ -1,0 +1,95 @@
+#summary One KEDR installation for multiple kernels.
+
+= Introduction =
+
+Sometimes you have several Linux kernels built on your system and want to use KEDR for all(or some) of them.
+
+As KEDR functionality is based on additional kernel modules, you cannot simply build KEDR for one kernel and use it for others: modules cannot be loaded in kernel them are not compiled for.
+
+One way for have KEDR worked for several kernels is building and installing it separately for every kernel. For make these installations not conflicting with each other, different installation prefixes should be used for them.
+
+But having different installation prefixes for each kernel means that kernel-dependent paths should be used for run KEDR's scripts and programs.
+
+This is inconvinent: you should remember paths for every kernel. Or you should write own scripts for unifying access for KEDR commands.
+
+Another, more progressive way for have KEDR worked for several kernels is to use multi-kernel build, where KEDR's scripts and programs are already unified for work with several kernels.
+
+= Multi-kernel build =
+
+Multi-kernel build actually consists from two type of builds: common and per-kernel.
+
+== Common build ==
+
+With configuration
+
+{{{
+cmake -DUSER_PART_ONLY=on ... <path-to-kedr-sources>
+}}}
+
+only one KEDR part will be built and installed, which is not depend from the kernel. This part includes programs and scripts, and some other components(documentation, examples, etc.).
+
+You should perform that build once for you system.
+
+== Per-kernel build ==
+
+With configuration
+
+{{{
+cmake -DKERNEL_PART_ONLY=on ... <path-to-kedr-sources>
+}}}
+
+only kernel-dependent files of KEDR will be built and installed. This includes kernel modules and symvers files(for develop KEDR-based instuments).
+
+That build should be performed for every kernel you want to use KEDR for.
+
+*IMPORTANT* The build directories for per-kernel builds should differ from each other and from the build directory for a common build.
+
+== Additional configuration parameters ==
+
+Normally, every additional parameter, specified for common build, should be also specified with same value for every per-kernel build. For example, parameters below should be precisely same for common build all per-kernel builds:
+  * installation prefix (CMAKE_INSTALL_PREFIX, also see [HowTo_multi_kernel#Installation_prefixes_for_multi-kernel_builds below])
+  * options which control components existence(KEDR_TRACE, KEDR_LEAK_CHECK)
+  * options which control payloads existence(KEDR_STANDARD_FSIM_PAYLOADS, KEDR_STANDARD_CALLM_PAYLOADS)
+  * payloads tuning (KEDR_ENABLE_CALLER_ADDRESS)
+
+Note, that per-kernel build knows nothing about configuration parameters for common one (and vice versa). So, passing incompatible parameters for these builds cannot be detected at configuration stage, but may lead to inconsistent installation.
+
+Nevertheless, some parameters may be passed independently to common build and per-kernel ones:
+  * CMAKE_CXX_FLAGS (affects only common build)
+  * KBUILD_C_FLAGS, KEDR_USE_SPARSE (affects only per-kernel build)
+  * KEDR_GEN (does not affect on installation itself, also see [HowTo_multi_kernel#How_to_not_compile_kedr_gen_in_every_per-kernel_build below])
+  * WITH_TESTING (all tests are built in per-kernel build, also see [HowTo_multi_kernel#Testing_and_multi-kernel_builds below])
+  * CMAKE_SYSTEM_VERSION (affects only per-kernel build, also see [HowTo_multi_kernel#Cross_compilation_and_multi-kernel_builds below])
+
+= Hints and Caveats =
+
+== Installation prefixes for multi-kernel builds ==
+
+Multi-kernel builds are supported only for global installation type, which correspond to next installation prefixes:
+  * "/opt" and its subdirectories
+  * "/usr" and its subdirectories
+  * "/" (precisely)
+
+== How to not compile kedr_gen in every per-kernel build ==
+
+kedr_gen is used in build process of per-kernel build. So, by default, it is compiled (at configuration stage) for every such build.
+
+Because kedr_gen is installed by common build, you may reuse it for per-kernel builds. Just pass corresponded KEDR_GEN parameter for cmake:
+
+{{{
+cmake -DKERNEL_PART_ONLY=on -DKEDR_GEN=/usr/local/lib/kedr/kedr_gen ...
+}}}
+
+== Testing and multi-kernel builds ==
+
+Normally, you should pass WITH_TESTING parameter both for common build and for per-kernel builds.
+
+But it is allowed to pass this parameter only for per-kernel builds. In that case testing may be performed using
+
+{{{
+/var/opt/kedr/tests/`uname -r`/run_tests.sh
+}}}
+
+== Cross compilation and multi-kernel builds ==
+
+Cross compilation should work as usual for multi-kernel builds. Just pass corresponded parameters both for common and for per-kernel builds. For common build CMAKE_SYSTEM_VERSION parameter, which corresponds to kernel version in per-kernel builds, may be any.

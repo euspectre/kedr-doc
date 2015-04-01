@@ -1,0 +1,124 @@
+#summary KEDR and Chromium OS - how to build KEDR for Chromium OS
+
+<wiki:toc max_depth="4"/>
+
+= KEDR and Chromium OS =
+
+Here we describe how to build KEDR for [http://www.chromium.org/chromium-os Chromium OS]. We assume that the readers already know how to build Chromium OS itself, how to use the special chroot environment, etc.
+
+When building software for Chromium OS, one needs to distinguish two systems (usually, different machines): 
+  * *build system* where the build is performed and
+  * *target system* where Chromium OS and that software will run.
+
+== Building ==
+Similar to other software for Chromium OS, everything is done in chroot environment. Here we assume the working directory is `/home/user/work/`.
+
+In the example described below, everything was done using the following configuration:
+  * Build system: Ubuntu Linux 10.04 x86-64;
+  * Target "board": x86-generic;
+  * Chromium OS kernel: version string: "3.4.0", this is the default kernel checked out at Sat Sep 22 2012; 
+  * CMake 2.6 (should work with newer versions too);
+  * KEDR: version 0.2.1 (should work with newer versions too), the sources were unpacked to `/home/user/work/kedr-0.2.1` inside the chroot environment.
+
+=== Preliminaries ===
+First, you need to create appropriate directories for build files and temporary installations:
+
+{{{
+cd /home/user/work/
+mkdir build
+mkdir install
+
+mkdir build.kedr_gen
+mkdir install.kedr_gen
+}}}
+
+=== Kernel build files ===
+Chromium OS does not explicitly support building kernel modules out-of-tree, so the following is a bit of a hack. We can build the kernel once more but instruct the system to preserve the files generated during the build:
+
+{{{
+cd ~/trunk/src/scripts/
+FEATURES="noclean" emerge-x86-generic -a sys-kernel/chromeos-kernel
+}}}
+
+This may take some time. The kernel will be built and installed, and the build files will be kept in `/build/x86-generic/tmp/portage/sys-kernel/chromeos-kernel-9999/work/chromeos-kernel-9999/build/x86-generic`. The path may be different on your system. For example, if you did not do *cros_workon* for the kernel, another version would be used instead of _9999_. In general, just look for a directory containing _vmlinux_ and _System.map_ files in `/build/x86-generic/tmp/portage/` tree and take the path to it.
+
+It can be useful to make a spare copy of that directory because the contents of `/build/x86-generic/tmp/portage/` may be wiped out when you build some other software for Chromium OS.
+
+=== Code generation tool (kedr_gen) ===
+KEDR build system generates the source code of some of its components using [kedr_manual_extend#using_gen special template files]. For example, the kernel modules that perform fault simulation, memory leak detection and call tracing are created this way from the descriptions of the kernel functions to be intercepted. Code generation is done by *kedr_gen* tool included in KEDR framework. 
+
+*kedr_gen* should be built before all other components of the framework. When the build and the target machines have the same architecture and use the same compiler toolchain, this is taken care of automatically. However, when building KEDR for Chromium OS, you need to build *kedr_gen* explicitly:
+
+{{{
+cd /home/user/work/build.kedr_gen/
+cmake \
+  -DCMAKE_INSTALL_PREFIX=/home/user/work/install.kedr_gen/ \
+  ../kedr-0.2.1/tools/kedr_gen/
+make 
+make install
+}}}
+
+*kedr_gen* should now be available as `/home/user/work/install.kedr_gen/kedr_gen`
+
+=== Configuring and building KEDR ===
+Now everything is ready to configure and build KEDR itself. First you need to execute *cmake* from the build directory. 
+
+{{{
+cd /home/user/work/build
+cmake \
+  -DCMAKE_TOOLCHAIN_FILE=/home/user/work/kedr-0.2.1/cmake/platform/chromiumos-x86-generic.cmake \
+  -DCMAKE_SYSTEM_VERSION="2.6.37" \
+  -DKBUILD_BUILD_DIR=/build/x86-generic/tmp/portage/sys-kernel/chromeos-kernel-9999/work/chromeos-kernel-9999/build/x86-generic/ \
+  -DKEDR_GEN=/home/user/work/install.kedr_gen/kedr_gen \
+  ../kedr-0.2.1/
+}}}
+
+As you can see, the following CMake variables are set:
+<dl>
+<dt>*CMAKE_TOOLCHAIN_FILE*</dt>
+<dd>The path to the _toolchain file_ (_profile_). The profile for Chromium OS (x86-generic) is provided with KEDR.</dd>
+<dt>*CMAKE_SYSTEM_VERSION*</dt>
+<dd>Kernel version string. To be exact, this is what *uname -r* would return for the target system.</dd>
+<dt>*KBUILD_BUILD_DIR*</dt>
+<dd>Path to the build tree of the kernel (see above).</dd>
+<dt>*KEDR_GEN*</dt>
+<dd>Path to *kedr_gen* tool that you have created earlier.</dd>
+</dl>
+
+CMake may issue the following warning:
+
+<pre>
+CMake Warning:
+   Manually-specified variables were not used by the project:
+
+     CMAKE_TOOLCHAIN_FILE
+</pre>
+
+This is [http://public.kitware.com/Bug/view.php?id=13093 a known peculiarity of CMake]. CMake does use `CMAKE_TOOLCHAIN_FILE` variable, so you can safely ignore the warning.
+
+If the configuration phase has completed successfully, you can now build KEDR:
+
+{{{
+make 
+}}}
+
+Note that self-testing support (`make check`) is currently disabled for such cross-builds. The documentation and the examples will not be installed in this case either, they are probably not necessary on the target system anyway.
+
+=== Installation ===
+It can be convenient to install KEDR using a particular directory as a root (`DESTDIR`):
+
+{{{
+make DESTDIR=/home/user/work/install install
+}}}
+
+After that, you can copy the contents of `/home/user/work/install/usr/` to `/usr` directory on the target system.
+
+Note that `/etc` and its subdirectories can be read-only on the target system. It is recommended to copy `/home/user/work/install/etc/kedr/*.conf` files somewhere else there. After that you should specify the full path to the relevant .conf files when you load KEDR, for example,
+
+{{{
+kedr start <name_of_the_target_module> \
+    -f /home/chronos/user/etc/kedr/leak_check.conf \
+    -f /home/chronos/user/etc/kedr/fsim.conf
+}}}
+
+Now you should be able to use KEDR on your ChromiumOS box.

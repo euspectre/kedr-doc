@@ -1,0 +1,11 @@
+#summary Some of the races found by KernelStrider
+
+= Races Found =
+
+|| *Driver* || *Kernel* || *Summary* || *Notes* || *Reported to* || *Status* ||
+|| e1000 (Intel) || 3.10.10 || `.probe()` VS `.ndo_open()` || Confirmed by [https://github.com/winnukem/racehound RaceHound tool] || [http://permalink.gmane.org/gmane.linux.drivers.e1000.devel/12358 e1000-devel mailing list] || Unconfirmed ||
+|| e1000 (Intel) || 3.10.10 || NAPI `poll()` VS `.ndo_start_xmit()`, 6 races || Confirmed by [https://github.com/winnukem/racehound RaceHound tool] || [http://sourceforge.net/mailarchive/message.php?msg_id=31452821 e1000-devel mailing list] || Unconfirmed ||
+|| e1000 (Intel) || 3.10.10 || Races on the counters used by ethtool || Probably benign ||  ||  ||
+|| `r8169` (Realtek) || 3.10.13 || `.probe()` VS `.ndo_open()` || Confirmed by [https://github.com/winnukem/racehound RaceHound tool]<br/>Probably not critical: in the worst case, stale data will be output to the log and that's all ||  ||  ||
+|| atl1c (Atheros) || 3.10.13 || .ndo_get_stats VS itself || Probably benign: <br/> same values are written by each thread ||  ||  ||
+|| e1000e (Intel) || 3.10.27 || down() VS NAPI poll() || Potential system crash || [http://sourceforge.net/p/e1000/bugs/401/ e1000 bug tracker #401] || Unconfirmed ||
